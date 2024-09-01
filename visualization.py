@@ -1,15 +1,15 @@
 import matplotlib.pyplot as plt
 import torch  # Add this import
 
-def plot_scaling_behavior(baseline_results, aux_conf_results, bootstrap_results):
+def plot_scaling_behavior(baseline_results, aux_conf_results, bootstrap_results, gen_finetuning_results):
     plt.figure(figsize=(12, 8))
     
-    # Assuming results contain model sizes and corresponding accuracies
     model_sizes = ['Small', 'Medium', 'Large']
     
     plt.plot(model_sizes, baseline_results, marker='o', label='Baseline')
     plt.plot(model_sizes, aux_conf_results, marker='s', label='Auxiliary Confidence Loss')
     plt.plot(model_sizes, bootstrap_results, marker='^', label='Bootstrapping')
+    plt.plot(model_sizes, gen_finetuning_results, marker='D', label='Generative Fine-tuning')
     
     plt.xlabel('Model Size')
     plt.ylabel('Accuracy')

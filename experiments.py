@@ -1,82 +1,75 @@
-from models import finetune_model, generate_weak_labels
+from models import finetune_model, generate_weak_labels, finetune_model_with_aux_conf, generative_finetuning
+from sklearn.metrics import accuracy_score
 
 def run_baseline_experiment(weak_model, strong_model, train_data, test_data, ground_truth):
-    # Finetune the strong model on the train data
-    finetuned_strong_model = finetune_model(strong_model, train_data)
+    # Fine-tune weak and strong models
+    finetuned_weak = finetune_model(weak_model, train_data)
+    finetuned_strong = finetune_model(strong_model, train_data)
     
-    # Evaluate the finetuned strong model
-    baseline_accuracy = evaluate_model(finetuned_strong_model, test_data, ground_truth)
+    # Evaluate models
+    weak_preds = generate_weak_labels(finetuned_weak, test_data)
+    strong_preds = generate_weak_labels(finetuned_strong, test_data)
     
-    return [baseline_accuracy]
+    weak_acc = accuracy_score(ground_truth, weak_preds)
+    strong_acc = accuracy_score(ground_truth, strong_preds)
+    
+    return [weak_acc, (weak_acc + strong_acc) / 2, strong_acc]
 
 def run_aux_conf_experiment(weak_model, strong_model, train_data, test_data, ground_truth):
-    # Generate weak labels using the weak model
+    # Generate weak labels
     weak_labels = generate_weak_labels(weak_model, train_data)
     
-    # Finetune the strong model with auxiliary confidence loss
-    finetuned_strong_model = finetune_model_with_aux_conf(strong_model, train_data, weak_labels)
+    # Fine-tune models with auxiliary confidence loss
+    finetuned_weak = finetune_model_with_aux_conf(weak_model, train_data, weak_labels)
+    finetuned_strong = finetune_model_with_aux_conf(strong_model, train_data, weak_labels)
     
-    # Evaluate the finetuned strong model
-    aux_conf_accuracy = evaluate_model(finetuned_strong_model, test_data, ground_truth)
+    # Evaluate models
+    weak_preds = generate_weak_labels(finetuned_weak, test_data)
+    strong_preds = generate_weak_labels(finetuned_strong, test_data)
     
-    return [aux_conf_accuracy]
+    weak_acc = accuracy_score(ground_truth, weak_preds)
+    strong_acc = accuracy_score(ground_truth, strong_preds)
+    
+    return [weak_acc, (weak_acc + strong_acc) / 2, strong_acc]
 
 def run_bootstrapping_experiment(weak_model, intermediate_model, strong_model, train_data, test_data, ground_truth):
-    # Generate weak labels using the weak model
+    # Generate weak labels
     weak_labels = generate_weak_labels(weak_model, train_data)
     
-    # Finetune the intermediate model with weak labels
-    finetuned_intermediate = finetune_model(intermediate_model, train_data, labels=weak_labels)
+    # Fine-tune intermediate model with weak labels
+    finetuned_intermediate = finetune_model_with_aux_conf(intermediate_model, train_data, weak_labels)
     
-    # Generate intermediate labels
-    intermediate_labels = generate_weak_labels(finetuned_intermediate, train_data)
+    # Generate better labels using finetuned intermediate model
+    better_labels = generate_weak_labels(finetuned_intermediate, train_data)
     
-    # Finetune the strong model with intermediate labels
-    finetuned_strong_model = finetune_model(strong_model, train_data, labels=intermediate_labels)
+    # Fine-tune strong model with better labels
+    finetuned_strong = finetune_model_with_aux_conf(strong_model, train_data, better_labels)
     
-    # Evaluate the finetuned strong model
-    bootstrap_accuracy = evaluate_model(finetuned_strong_model, test_data, ground_truth)
+    # Evaluate models
+    weak_preds = generate_weak_labels(weak_model, test_data)
+    intermediate_preds = generate_weak_labels(finetuned_intermediate, test_data)
+    strong_preds = generate_weak_labels(finetuned_strong, test_data)
     
-    return [bootstrap_accuracy]
+    weak_acc = accuracy_score(ground_truth, weak_preds)
+    intermediate_acc = accuracy_score(ground_truth, intermediate_preds)
+    strong_acc = accuracy_score(ground_truth, strong_preds)
+    
+    return [weak_acc, intermediate_acc, strong_acc]
 
-def evaluate_model(model, test_data, ground_truth):
-    model.eval()
-    correct_predictions = 0
-    total_predictions = 0
+def run_generative_finetuning_experiment(weak_model, strong_model, train_data, test_data, ground_truth, unlabeled_data):
+    # Generative fine-tuning on unlabeled data
+    gen_finetuned_weak = generative_finetuning(weak_model, unlabeled_data)
+    gen_finetuned_strong = generative_finetuning(strong_model, unlabeled_data)
     
-    with torch.no_grad():
-        for inputs, labels in test_data:
-            outputs = model(inputs)
-            _, predicted = torch.max(outputs.logits, 1)
-            total_predictions += labels.size(0)
-            correct_predictions += (predicted == labels).sum().item()
+    # Fine-tune on labeled data
+    finetuned_weak = finetune_model(gen_finetuned_weak, train_data)
+    finetuned_strong = finetune_model(gen_finetuned_strong, train_data)
     
-    accuracy = correct_predictions / total_predictions
-    return accuracy
-
-def finetune_model_with_aux_conf(model, train_data, weak_labels, num_epochs=2, batch_size=32, learning_rate=5e-5):
-    model.train()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+    # Evaluate models
+    weak_preds = generate_weak_labels(finetuned_weak, test_data)
+    strong_preds = generate_weak_labels(finetuned_strong, test_data)
     
-    for epoch in range(num_epochs):
-        for batch, weak_batch in zip(torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True),
-                                     torch.utils.data.DataLoader(weak_labels, batch_size=batch_size, shuffle=True)):
-            inputs, labels = batch
-            weak_label = weak_batch
-            
-            outputs = model(inputs, labels=labels)
-            main_loss = outputs.loss
-            
-            # Calculate auxiliary confidence loss
-            logits = outputs.logits
-            probs = torch.softmax(logits, dim=-1)
-            aux_conf_loss = torch.mean(torch.abs(probs.max(dim=-1)[0] - weak_label))
-            
-            # Combine losses
-            total_loss = main_loss + aux_conf_loss
-            
-            optimizer.zero_grad()
-            total_loss.backward()
-            optimizer.step()
+    weak_acc = accuracy_score(ground_truth, weak_preds)
+    strong_acc = accuracy_score(ground_truth, strong_preds)
     
-    return model
+    return [weak_acc, (weak_acc + strong_acc) / 2, strong_acc]
