@@ -33,14 +33,36 @@ def load_and_preprocess_data(dataset_name='wikitext', max_length=128):
     return train_dataset, test_dataset
 
 def load_wikitext():
-    # Placeholder for loading WikiText dataset
-    # You would need to implement the actual loading logic
-    pass
+    from datasets import load_dataset
+    
+    # Load the WikiText-103 dataset
+    dataset = load_dataset("wikitext", "wikitext-103-v1")
+    
+    # Combine train, validation, and test sets
+    all_text = dataset['train']['text'] + dataset['validation']['text'] + dataset['test']['text']
+    
+    # Create a DataFrame
+    df = pd.DataFrame({'text': all_text})
+    
+    # Remove empty strings and reset index
+    df = df[df['text'].str.strip() != ''].reset_index(drop=True)
+    
+    return df
 
 def load_c4():
-    # Placeholder for loading C4 dataset
-    # You would need to implement the actual loading logic
-    pass
+    from datasets import load_dataset
+    
+    # Load a subset of the C4 dataset (e.g., 'en' for English)
+    dataset = load_dataset("c4", "en", split="train", streaming=True)
+    
+    # Take a sample of the data (adjust the size as needed)
+    sample_size = 100000  # Adjust this value based on your needs and available resources
+    sampled_data = list(dataset.take(sample_size))
+    
+    # Create a DataFrame
+    df = pd.DataFrame(sampled_data)
+    
+    return df
 
 # Function to create unlabeled dataset
 def create_unlabeled_dataset(dataset, unlabeled_ratio=0.8):
