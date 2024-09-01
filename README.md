@@ -10,6 +10,7 @@ This project analyzes the scaling behavior of different training approaches for 
 - Matplotlib
 - Pandas
 - Scikit-learn
+- OpenAI (for API access)
 
 ## Installation
 
@@ -21,8 +22,15 @@ This project analyzes the scaling behavior of different training approaches for 
 
 2. Install the required packages:
    ```
-   pip install torch transformers matplotlib pandas scikit-learn
+   pip install torch transformers matplotlib pandas scikit-learn openai
    ```
+
+3. Set up your OpenAI API key:
+   - Create a file named `.env` in the project root directory
+   - Add your API key to the file:
+     ```
+     OPENAI_API_KEY=your-api-key-here
+     ```
 
 ## Usage
 
@@ -38,7 +46,7 @@ This project analyzes the scaling behavior of different training approaches for 
 
    This will:
    - Load and preprocess the data
-   - Run baseline, auxiliary confidence loss, and bootstrapping experiments
+   - Run baseline, auxiliary confidence loss, bootstrapping, and generative fine-tuning experiments
    - Generate plots for scaling behavior and error distribution
    - Print the results of each experiment
 
@@ -62,6 +70,7 @@ This project analyzes the scaling behavior of different training approaches for 
 - `models.py`: Functions for loading and fine-tuning models
 - `experiments.py`: Implementation of different experimental approaches
 - `visualization.py`: Functions for plotting results
+- `colab_runner.ipynb`: Jupyter notebook for running experiments in Google Colab
 
 ## Notes
 
@@ -76,5 +85,6 @@ If you encounter any issues:
 2. Check that you're using a compatible version of Python (3.7+).
 3. Verify that you have sufficient disk space for model downloads and generated plots.
 4. If you're using a GPU, ensure that PyTorch is configured correctly for GPU usage.
+5. Make sure your OpenAI API key is set up correctly in the `.env` file.
 
 For any persistent problems, please open an issue on the GitHub repository.
